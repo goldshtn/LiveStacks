@@ -23,6 +23,7 @@ namespace LiveStacks
                 session.Stop();
             };
 
+            var resolver = new StackResolver();
             Timer printTimer = new Timer(_ =>
             {
                 Console.WriteLine(DateTime.Now.ToLongTimeString());
@@ -32,8 +33,13 @@ namespace LiveStacks
                 {
                     // TODO Resolve stack addresses, print folded, etc.
                     Console.WriteLine($"  {stack.Count,10} [PID {stack.ProcessID}]");
+                    foreach (var symbol in resolver.Resolve(stack.ProcessID, stack.Addresses))
+                    {
+                        Console.WriteLine($"    {symbol.ModuleName}!{symbol.MethodName}+0x{symbol.OffsetInMethod:X}");
+                    }
                 }
             }, null, TimeSpan.FromSeconds(options.IntervalSeconds), TimeSpan.FromSeconds(options.IntervalSeconds));
+            // TODO If the interval is 0, the user wants to print every single stack
 
             session.Start();
 
