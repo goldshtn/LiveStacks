@@ -57,6 +57,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AggregatedStacks.cs" />
     <Compile Include="LiveSession.cs" />
     <Compile Include="Options.cs" />
     <Compile Include="Program.cs" />

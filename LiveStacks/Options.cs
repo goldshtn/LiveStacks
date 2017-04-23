@@ -36,6 +36,20 @@ namespace LiveStacks
             HelpText = "The event for which to capture call stacks")]
         public string StackEvent { get; set; }
 
+        public IEnumerable<int> PidsToFilter
+        {
+            get
+            {
+                if (ProcessID != 0)
+                    return new int[] { ProcessID };
+
+                if (!String.IsNullOrEmpty(ProcessName))
+                    throw new NotImplementedException();
+
+                return Enumerable.Empty<int>();
+            }
+        }
+
         [HelpOption]
         public string GetUsage()
         {
