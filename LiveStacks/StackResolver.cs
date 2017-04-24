@@ -139,20 +139,44 @@ namespace LiveStacks
         private static extern bool IsWow64Process([In] IntPtr process, [Out] out bool wow64Process);
     }
 
-    class NativeTarget
+    class NativeTarget : IDisposable
     {
+        private IntPtr _hProcess;
+
         public NativeTarget(int processID)
         {
+            _hProcess = new IntPtr(processID);
+            // TODO Symbol path
+            if (!SymInitialize(_hProcess, null, false))
+                Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
         }
 
-        public Symbol ResolveSymbol(ulong address)
+        public void Dispose()
         {
-            return Symbol.Unknown; // TODO
+            SymCleanup(_hProcess);
+            _hProcess = IntPtr.Zero;
         }
 
-        private struct SYMBOL_INFO
+        public unsafe Symbol ResolveSymbol(ulong address)
         {
-            public uint SizeOfStruct;   // Must be set to the size + 1 (for the first name char)
+            SYMBOL_INFO symbol = new SYMBOL_INFO();
+            symbol.SizeOfStruct = (uint)(Marshal.SizeOf(typeof(SYMBOL_INFO)) - sizeof(char) * 255);
+            ulong displacement;
+            if (SymFromAddr(_hProcess, address, out displacement, ref symbol))
+            {
+                return new Symbol
+                {
+                    ModuleName = "[TODO]",
+                    MethodName = new string(symbol.Name),
+                    OffsetInMethod = (uint)displacement
+                };
+            }
+            return Symbol.Unknown;
+        }
+
+        private unsafe struct SYMBOL_INFO
+        {
+            public uint SizeOfStruct;
             public uint TypeIndex;
             public ulong Reserved1;
             public ulong Reserved2;
@@ -167,7 +191,7 @@ namespace LiveStacks
             public uint Tag;
             public uint NameLen;
             public uint MaxNameLen;
-            // The next field is the actual Name, which is dynamically sized
+            public fixed char Name[256];
         }
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
@@ -176,7 +200,7 @@ namespace LiveStacks
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SymFromAddr(IntPtr hProcess, ulong address, out ulong displacement, IntPtr symbol);
+        private static extern bool SymFromAddr(IntPtr hProcess, ulong address, out ulong displacement, ref SYMBOL_INFO symbol);
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
