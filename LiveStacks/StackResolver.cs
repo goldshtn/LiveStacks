@@ -88,10 +88,9 @@ namespace LiveStacks
             if (_managedTarget != null)
                 result = _managedTarget.ResolveSymbol(address);
 
-            if (result == Symbol.Unknown)
+            if (String.IsNullOrEmpty(result.MethodName))
                 result = _nativeTarget.ResolveSymbol(address);
 
-            // TODO If we're still at 'unknown', we could at least resolve the module
             return result;
         }
 
@@ -150,31 +149,72 @@ namespace LiveStacks
         {
             return Symbol.Unknown; // TODO
         }
+
+        private struct SYMBOL_INFO
+        {
+            public uint SizeOfStruct;   // Must be set to the size + 1 (for the first name char)
+            public uint TypeIndex;
+            public ulong Reserved1;
+            public ulong Reserved2;
+            public uint Index;
+            public uint Size;
+            public ulong ModBase;
+            public uint Flags;
+            public ulong Value;
+            public ulong Address;
+            public uint Register;
+            public uint Scope;
+            public uint Tag;
+            public uint NameLen;
+            public uint MaxNameLen;
+            // The next field is the actual Name, which is dynamically sized
+        }
+
+        [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SymInitialize(IntPtr hProcess, string userSearchPath, [MarshalAs(UnmanagedType.Bool)] bool invadeProcess);
+
+        [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SymFromAddr(IntPtr hProcess, ulong address, out ulong displacement, IntPtr symbol);
+
+        [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SymCleanup(IntPtr hProcess);
     }
 
     class ManagedTarget
     {
         private DataTarget _dataTarget;
         private ClrRuntime _runtime;
+        private List<ModuleInfo> _modules;
 
         public ManagedTarget(int processID)
         {
             // TODO This can only be done from a process with the same bitness, so we might want to move this out
             _dataTarget = DataTarget.AttachToProcess(processID, 1000, AttachFlag.Passive);
             _runtime = _dataTarget.ClrVersions[0].CreateRuntime();  // TODO There could be more than one runtime
+            _modules = new List<ModuleInfo>(_dataTarget.EnumerateModules());
         }
 
         public Symbol ResolveSymbol(ulong address)
         {
+            // TODO Switch to binary search if this poses a perf issue
+            var module = _modules.FirstOrDefault(m => m.ImageBase <= address && (m.ImageBase + m.FileSize) > address);
             var method = _runtime.GetMethodByAddress(address);
-            if (method == null)
-                return Symbol.Unknown;
-
+            if (method != null)
+            {
+                return new Symbol
+                {
+                    ModuleName = module?.FileName ?? "[unknown]",
+                    MethodName = method.GetFullSignature(),
+                    OffsetInMethod = (uint)(address - method.NativeCode)
+                };
+            }
             return new Symbol
             {
-                ModuleName = "[managed]", // TODO
-                MethodName = method.GetFullSignature(),
-                OffsetInMethod = (uint)(address - method.NativeCode)
+                ModuleName = module?.FileName ?? "[unknown]",
+                OffsetInMethod = (uint)(address - module?.ImageBase ?? 0)
             };
         }
     }
