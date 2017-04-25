@@ -24,18 +24,23 @@ namespace LiveStacks
             };
 
             var resolver = new StackResolver();
+            object timerSyncObject = new object();
             Timer printTimer = new Timer(_ =>
             {
-                Console.WriteLine(DateTime.Now.ToLongTimeString());
-                var stacks = session.Stacks.TopStacks(options.TopStacks);
-                session.Stacks.Clear();
-                foreach (var stack in stacks)
+                // Prevent multiple invocations of the timer from running concurrently.
+                lock (timerSyncObject)
                 {
-                    // TODO Resolve stack addresses, print folded, etc.
-                    Console.WriteLine($"  {stack.Count,10} [PID {stack.ProcessID}]");
-                    foreach (var symbol in resolver.Resolve(stack.ProcessID, stack.Addresses))
+                    Console.WriteLine(DateTime.Now.ToLongTimeString());
+                    var stacks = session.Stacks.TopStacks(options.TopStacks);
+                    session.Stacks.Clear();
+                    foreach (var stack in stacks)
                     {
-                        Console.WriteLine($"    {symbol.ModuleName}!{symbol.MethodName}+0x{symbol.OffsetInMethod:X}");
+                        // TODO Resolve stack addresses, print folded, etc.
+                        Console.WriteLine($"  {stack.Count,10} [PID {stack.ProcessID}]");
+                        foreach (var symbol in resolver.Resolve(stack.ProcessID, stack.Addresses))
+                        {
+                            Console.WriteLine($"    {symbol.ModuleName}!{symbol.MethodName}+0x{symbol.OffsetInMethod:X}");
+                        }
                     }
                 }
             }, null, TimeSpan.FromSeconds(options.IntervalSeconds), TimeSpan.FromSeconds(options.IntervalSeconds));

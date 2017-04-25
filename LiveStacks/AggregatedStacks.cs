@@ -57,7 +57,7 @@ namespace LiveStacks
     class PidStacks
     {
         public int ProcessID { get; private set; }
-        public Dictionary<OneStack, int> CountedStacks { get; } = new Dictionary<OneStack, int>();
+        public ConcurrentDictionary<OneStack, int> CountedStacks { get; } = new ConcurrentDictionary<OneStack, int>();
 
         public PidStacks(int processID)
         {
@@ -66,12 +66,8 @@ namespace LiveStacks
 
         public void AddStack(ulong[] addresses)
         {
-            int count;
             var stack = new OneStack { Addresses = addresses };
-            if (!CountedStacks.TryGetValue(stack, out count))
-                CountedStacks[stack] = 1;
-            else
-                CountedStacks[stack] = count + 1;
+            CountedStacks.AddOrUpdate(stack, 1, (_, existingCount) => existingCount + 1);
         }
     }
 

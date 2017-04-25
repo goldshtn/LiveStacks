@@ -1,6 +1,7 @@
 ﻿using Microsoft.Diagnostics.Runtime;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -60,6 +61,7 @@ namespace LiveStacks
 
     class ProcessStackResolver
     {
+        private const int E_ACCESSDENIED = -2147467259;
         private readonly int _processID;
         private ManagedTarget _managedTarget;
         private NativeTarget _nativeTarget;
@@ -73,7 +75,16 @@ namespace LiveStacks
             if (isManagedProcess && IsSameArchitecture(processID))
                 _managedTarget = new ManagedTarget(processID);
 
-            _nativeTarget = new NativeTarget(processID);
+            // TODO Need IsSameArchitecture check for native target as well :-(
+            try
+            {
+                _nativeTarget = new NativeTarget(processID);
+            }
+            catch (Win32Exception ex) when (ex.HResult == E_ACCESSDENIED)
+            {
+                // We can't open a process handle to certain processes,
+                // so just skip resolving their symbols.
+            }
         }
 
         public Symbol[] Resolve(ulong[] addresses)
@@ -88,7 +99,7 @@ namespace LiveStacks
             if (_managedTarget != null)
                 result = _managedTarget.ResolveSymbol(address);
 
-            if (String.IsNullOrEmpty(result.MethodName))
+            if (String.IsNullOrEmpty(result.MethodName) && _nativeTarget != null)
                 result = _nativeTarget.ResolveSymbol(address);
 
             return result;
@@ -123,7 +134,7 @@ namespace LiveStacks
                     Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
                 return !isWow64Process;
             }
-            catch (Exception)
+            catch (Win32Exception ex) when (ex.HResult == E_ACCESSDENIED)
             {
                 return false; // This might be a process we can't touch
             }
@@ -142,39 +153,55 @@ namespace LiveStacks
     class NativeTarget : IDisposable
     {
         private IntPtr _hProcess;
+        private Process _process;
 
         public NativeTarget(int processID)
         {
-            _hProcess = new IntPtr(processID);
-            // TODO Symbol path
-            if (!SymInitialize(_hProcess, null, false))
+            _process = Process.GetProcessById(processID);
+            _hProcess = _process.Handle;
+            SymSetOptions(SYMOPT_DEFERRED_LOADS);
+            string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
+            // TODO Because we use invadeProcess=true, the caller must have the same bitness again
+            //      We have the same restriction in the ManagedTarget, so probably what would make
+            //      sense is to resolve symbols in a separate helper process :-(
+            if (!SymInitialize(_hProcess, symbolPath, true))
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
         }
 
         public void Dispose()
         {
             SymCleanup(_hProcess);
+            _process.Dispose();
             _hProcess = IntPtr.Zero;
         }
 
         public unsafe Symbol ResolveSymbol(ulong address)
         {
+            Symbol result = new Symbol
+            {
+                ModuleName = ModuleForAddress(address) ?? "[unknown]"
+            };
             SYMBOL_INFO symbol = new SYMBOL_INFO();
-            symbol.SizeOfStruct = (uint)(Marshal.SizeOf(typeof(SYMBOL_INFO)) - sizeof(char) * 255);
+            symbol.SizeOfStruct = 88;
+            symbol.MaxNameLen = 256;
             ulong displacement;
             if (SymFromAddr(_hProcess, address, out displacement, ref symbol))
             {
-                return new Symbol
-                {
-                    ModuleName = "[TODO]",
-                    MethodName = new string(symbol.Name),
-                    OffsetInMethod = (uint)displacement
-                };
+                result.MethodName = symbol.Name;
+                result.OffsetInMethod = (uint)displacement;
             }
-            return Symbol.Unknown;
+            return result;
         }
 
-        private unsafe struct SYMBOL_INFO
+        private string ModuleForAddress(ulong address)
+        {
+            return _process.Modules.Cast<ProcessModule>().FirstOrDefault(
+                pm => pm.BaseAddress.ToInt64() <= (long)address &&
+                (pm.BaseAddress.ToInt64() + pm.ModuleMemorySize) > (long)address)
+                ?.ModuleName;
+        }
+
+        private struct SYMBOL_INFO
         {
             public uint SizeOfStruct;
             public uint TypeIndex;
@@ -191,7 +218,8 @@ namespace LiveStacks
             public uint Tag;
             public uint NameLen;
             public uint MaxNameLen;
-            public fixed char Name[256];
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            public string Name;
         }
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
@@ -201,6 +229,11 @@ namespace LiveStacks
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SymFromAddr(IntPtr hProcess, ulong address, out ulong displacement, ref SYMBOL_INFO symbol);
+
+        private const uint SYMOPT_DEFERRED_LOADS = 0x00000004;
+
+        [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        private static extern uint SymSetOptions(uint options);
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
