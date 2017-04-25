@@ -10,19 +10,21 @@ using System.Threading.Tasks;
 
 namespace LiveStacks
 {
-    struct Symbol : IEquatable<Symbol> 
+    struct Symbol : IEquatable<Symbol>
     {
         public string ModuleName { get; set; }
         public string MethodName { get; set; }
         public uint OffsetInMethod { get; set; }
+        public ulong Address { get; set; }
 
-        public static Symbol Unknown = new Symbol();
+        public static Symbol Unknown(ulong address)
+        {
+            return new Symbol { Address = address };
+        }
 
         public bool Equals(Symbol symbol)
         {
-            return symbol.ModuleName == ModuleName &&
-                symbol.MethodName == MethodName &&
-                symbol.OffsetInMethod == OffsetInMethod;
+            return Address == symbol.Address;
         }
 
         public override bool Equals(object obj)
@@ -36,11 +38,19 @@ namespace LiveStacks
 
         public override int GetHashCode()
         {
-            return 0; // TODO?
+            return Address.GetHashCode();
         }
 
-        public static bool operator==(Symbol a, Symbol b) => a.Equals(b);
-        public static bool operator!=(Symbol a, Symbol b) => !a.Equals(b);
+        public static bool operator ==(Symbol a, Symbol b) => a.Equals(b);
+        public static bool operator !=(Symbol a, Symbol b) => !a.Equals(b);
+
+        public override string ToString()
+        {
+            if (String.IsNullOrEmpty(MethodName) && String.IsNullOrEmpty(ModuleName))
+                return $"{Address,16:X}";
+            else
+                return $"{ModuleName}!{MethodName}+0x{OffsetInMethod:X}";
+        }
     }
 
     class StackResolver
@@ -94,7 +104,7 @@ namespace LiveStacks
 
         private Symbol Resolve(ulong address)
         {
-            Symbol result = Symbol.Unknown;
+            Symbol result = Symbol.Unknown(address);
 
             if (_managedTarget != null)
                 result = _managedTarget.ResolveSymbol(address);
@@ -159,6 +169,7 @@ namespace LiveStacks
         {
             _process = Process.GetProcessById(processID);
             _hProcess = _process.Handle;
+            // TODO Need symsrv.dll to be around for symbol server loads to succeed.
             SymSetOptions(SYMOPT_DEFERRED_LOADS);
             string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
             // TODO Because we use invadeProcess=true, the caller must have the same bitness again
@@ -179,7 +190,8 @@ namespace LiveStacks
         {
             Symbol result = new Symbol
             {
-                ModuleName = ModuleForAddress(address) ?? "[unknown]"
+                ModuleName = ModuleForAddress(address),
+                Address = address
             };
             SYMBOL_INFO symbol = new SYMBOL_INFO();
             symbol.SizeOfStruct = 88;
@@ -265,13 +277,15 @@ namespace LiveStacks
                 {
                     ModuleName = module?.FileName ?? "[unknown]",
                     MethodName = method.GetFullSignature(),
-                    OffsetInMethod = (uint)(address - method.NativeCode)
+                    OffsetInMethod = (uint)(address - method.NativeCode),
+                    Address = address
                 };
             }
             return new Symbol
             {
                 ModuleName = module?.FileName ?? "[unknown]",
-                OffsetInMethod = (uint)(address - module?.ImageBase ?? 0)
+                OffsetInMethod = (uint)(address - module?.ImageBase ?? 0),
+                Address = address
             };
         }
     }

@@ -39,7 +39,7 @@ namespace LiveStacks
                         Console.WriteLine($"  {stack.Count,10} [PID {stack.ProcessID}]");
                         foreach (var symbol in resolver.Resolve(stack.ProcessID, stack.Addresses))
                         {
-                            Console.WriteLine($"    {symbol.ModuleName}!{symbol.MethodName}+0x{symbol.OffsetInMethod:X}");
+                            Console.WriteLine("    " + symbol.ToString());
                         }
                     }
                 }
