@@ -25,7 +25,7 @@ namespace LiveStacks
 
             _invocationsLeft = _options.Count == -1 ? int.MaxValue : _options.Count;
 
-            _session = new LiveSession(_options.StackEvent, _options.PidsToFilter);
+            _session = new LiveSession(_options.StackEvent, _options.PidsToFilter, _options.IncludeKernelFrames);
             Console.CancelKeyPress += (_, __) =>
             {
                 Console.WriteLine("Ctrl+C pressed, stopping...");

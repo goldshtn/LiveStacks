@@ -15,16 +15,18 @@ namespace LiveStacks
         private TraceEventSession _session;
         private readonly string _stackEvent;
         private List<int> _processIDs = new List<int>();
+        private readonly bool _includeKernelFrames;
 
         public AggregatedStacks Stacks { get; private set; } = new AggregatedStacks();
 
-        public LiveSession(string stackEvent, IEnumerable<int> processIDs)
+        public LiveSession(string stackEvent, IEnumerable<int> processIDs, bool includeKernelFrames)
         {
             _stackEvent = stackEvent;
             if (_processIDs != null)
             {
                 _processIDs.AddRange(processIDs);
             }
+            _includeKernelFrames = includeKernelFrames;
         }
 
         /// <summary>
@@ -53,11 +55,17 @@ namespace LiveStacks
                 return;
 
             ulong[] addresses = new ulong[stack.FrameCount];
-            for (int i = 0; i < addresses.Length; ++i)
+            int recordedIdx = 0;
+            for (int originalFrameIdx = 0; originalFrameIdx < stack.FrameCount; ++originalFrameIdx)
             {
-                addresses[i] = stack.InstructionPointer(i);
+                ulong ip = stack.InstructionPointer(originalFrameIdx);
+                if (_includeKernelFrames || (ip < 0x8000000000000000))
+                    addresses[recordedIdx++] = ip;
             }
-            Stacks.AddStack(stack.ProcessID, addresses);
+            if (recordedIdx > 0) // This could have been a purely kernel stack
+            {
+                Stacks.AddStack(stack.ProcessID, addresses);
+            }
         }
 
         private bool ProcessFilter(int processID)

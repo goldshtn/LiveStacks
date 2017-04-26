@@ -112,7 +112,9 @@ namespace LiveStacks
 
         public Symbol[] Resolve(ulong[] addresses)
         {
-            return addresses.Select(address => _symbolCache.GetOrAdd(address, Resolve)).ToArray();
+            return addresses.Where(address => address != 0)
+                            .Select(address => _symbolCache.GetOrAdd(address, Resolve))
+                            .ToArray();
         }
 
         private Symbol Resolve(ulong address)

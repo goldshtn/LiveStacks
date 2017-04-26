@@ -27,6 +27,10 @@ namespace LiveStacks
             HelpText = "How many times to print a summary before quitting (default = indefinite)")]
         public int Count { get; set; }
 
+        [Option('K', "kernel", Required = false, DefaultValue = false,
+            HelpText = "Include kernel frames in the stack report")]
+        public bool IncludeKernelFrames { get; set; }
+
         [Option('P', "pname", Required = false, MutuallyExclusiveSet = "pname",
             HelpText = "Display stacks only from this process (by name)")]
         public string ProcessName { get; set; }
