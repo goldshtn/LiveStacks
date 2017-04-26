@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
+using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 
 namespace LiveStacks
 {
@@ -38,18 +39,50 @@ namespace LiveStacks
         public void Start()
         {
             _session = new TraceEventSession($"LiveStacks-{Process.GetCurrentProcess().Id}");
-            // TODO Use the stack event to decide what to enable
+
             // TODO Make the CPU sampling interval configurable, although changing it doesn't seem to work in a VM?
             // _session.CpuSampleIntervalMSec = 10.0f;
-            _session.EnableKernelProvider(KernelTraceEventParser.Keywords.Profile,
-                KernelTraceEventParser.Keywords.Profile);
+
             // TODO Should we use _session.StackCompression? What would the events look like?
 
-            _session.Source.Kernel.StackWalkStack += OnStackEvent;
+            if (_stackEvent == "sample")
+            {
+                _session.EnableKernelProvider(
+                    KernelTraceEventParser.Keywords.Profile,
+                    stackCapture: KernelTraceEventParser.Keywords.Profile);
+                _session.Source.Kernel.StackWalkStack += OnKernelStackEvent;
+            }
+
+            if (_stackEvent == "gc")
+            {
+                // TODO To work with arbitrary events, we need to enable the event and the stack walker,
+                //      and then we can get more events than we need because a single keyword can enable
+                //      multiple events. To figure out which events we care about, we need to store the
+                //      last seen event, and when a call stack arrives, look at the last seen event, and
+                //      if it is the event we were asked to collect, then aggregate that call stack.
+                _session.EnableProvider(
+                    ClrTraceEventParser.ProviderGuid,
+                    matchAnyKeywords: (ulong)(ClrTraceEventParser.Keywords.GC | ClrTraceEventParser.Keywords.Stack));
+                _session.Source.Clr.ClrStackWalk += OnClrStackEvent;
+            }
+
             _session.Source.Process();
         }
 
-        private void OnStackEvent(StackWalkStackTraceData stack)
+        private void OnClrStackEvent(ClrStackWalkTraceData stack)
+        {
+            if (!ProcessFilter(stack.ProcessID))
+                return;
+
+            ulong[] addresses = new ulong[stack.FrameCount];
+            for (int i = 0; i < addresses.Length; ++i)
+            {
+                addresses[i] = stack.InstructionPointer(i);
+            }
+            Stacks.AddStack(stack.ProcessID, addresses);
+        }
+
+        private void OnKernelStackEvent(StackWalkStackTraceData stack)
         {
             if (!ProcessFilter(stack.ProcessID))
                 return;

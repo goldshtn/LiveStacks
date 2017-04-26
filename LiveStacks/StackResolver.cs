@@ -15,7 +15,7 @@ namespace LiveStacks
     {
         public string ModuleName { get; set; }
         public string MethodName { get; set; }
-        public uint OffsetInMethod { get; set; }
+        public ulong OffsetInMethod { get; set; }
         public ulong Address { get; set; }
 
         public static Symbol Unknown(ulong address)
@@ -371,25 +371,25 @@ namespace LiveStacks
             // TODO This can only be done from a process with the same bitness, so we might want to move this out
             _dataTarget = DataTarget.AttachToProcess(processID, 1000, AttachFlag.Passive);
             _runtimes = _dataTarget.ClrVersions.Select(clr => clr.CreateRuntime()).ToList();
-            _modules = new List<ModuleInfo>(_dataTarget.EnumerateModules());
+            _modules = _dataTarget.EnumerateModules().ToList();
         }
 
         public Symbol ResolveSymbol(ulong address)
         {
-            var module = _modules.FirstOrDefault(
-                m => m.ImageBase <= address && (m.ImageBase + m.FileSize) > address);
             var method = _runtimes.Select(runtime => runtime.GetMethodByAddress(address))
                                   .FirstOrDefault(m => m != null);
             if (method != null)
             {
                 return new Symbol
                 {
-                    ModuleName = Path.GetFileName(module?.FileName ?? "[unknown]"),
+                    ModuleName = Path.GetFileName(method.Type?.Module?.Name ?? "[unknown]"),
                     MethodName = method.GetFullSignature(),
                     OffsetInMethod = (uint)(address - method.NativeCode),
                     Address = address
                 };
             }
+            var module = _modules.FirstOrDefault(
+                m => m.ImageBase <= address && (m.ImageBase + m.FileSize) > address);
             return new Symbol
             {
                 ModuleName = module?.FileName ?? "[unknown]",
