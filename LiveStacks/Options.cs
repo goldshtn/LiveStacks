@@ -23,6 +23,10 @@ namespace LiveStacks
             HelpText = "How often to print the stack summary (0 = each stack is printed)")]
         public int IntervalSeconds { get; set; }
 
+        [Option('c', "count", Required = false, DefaultValue = -1,
+            HelpText = "How many times to print a summary before quitting (default = indefinite)")]
+        public int Count { get; set; }
+
         [Option('P', "pname", Required = false, MutuallyExclusiveSet = "pname",
             HelpText = "Display stacks only from this process (by name)")]
         public string ProcessName { get; set; }
