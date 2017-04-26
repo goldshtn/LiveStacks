@@ -188,7 +188,7 @@ namespace LiveStacks
         {
             _process = Process.GetProcessById(processID);
             _hProcess = _process.Handle;
-            // TODO Need symsrv.dll to be around for symbol server loads to succeed.
+            // TODO Need symsrv.dll and dbghelp.dll to be around for symbol server loads to succeed.
             SymSetOptions(SYMOPT_DEFERRED_LOADS);
             string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
             if (!SymInitialize(_hProcess, symbolPath, invadeProcess: false))
@@ -209,14 +209,14 @@ namespace LiveStacks
             var module = ModuleForAddress(address);
             Symbol result = new Symbol
             {
-                ModuleName = module?.ModuleName,
+                ModuleName = module.ModuleName,
                 Address = address
             };
 
-            if (module != null && !_loadedModules.Contains(module.FileName))
+            if (!String.IsNullOrEmpty(module.FileName) && !_loadedModules.Contains(module.FileName))
             {
                 if (0 == SymLoadModule64(_hProcess, IntPtr.Zero, module.FileName, module.ModuleName,
-                    (ulong)module.BaseAddress.ToInt64(), (uint)module.ModuleMemorySize))
+                    module.BaseAddress, module.Size))
                 {
                     return result;
                 }
@@ -235,11 +235,52 @@ namespace LiveStacks
             return result;
         }
 
-        private ProcessModule ModuleForAddress(ulong address)
+        private LightProcessModule ModuleForAddress(ulong address)
         {
-            return _process.Modules.Cast<ProcessModule>().FirstOrDefault(
-                pm => pm.BaseAddress.ToInt64() <= (long)address &&
-                (pm.BaseAddress.ToInt64() + pm.ModuleMemorySize) > (long)address);
+            // System.Diagnostics.Process.Modules returns only the 64-bit modules
+            // if attached to a 32-bit target, so we have to use our own implementation.
+            return ProcessModules().FirstOrDefault(
+                pm => pm.BaseAddress <= address &&
+                (pm.BaseAddress + pm.Size) > address);
+        }
+
+        private IEnumerable<LightProcessModule> ProcessModules()
+        {
+            IntPtr[] moduleHandles = new IntPtr[1024];
+            uint sizeNeeded;
+            if (!K32EnumProcessModulesEx(_hProcess, moduleHandles, (uint)(moduleHandles.Length * IntPtr.Size),
+                out sizeNeeded, LIST_MODULES_ALL))
+            {
+                yield break;
+            }
+            var buffer = new StringBuilder(2048);
+            foreach (var moduleHandle in moduleHandles.Take((int)(sizeNeeded / IntPtr.Size)))
+            {
+                string fileName = "", baseName = "";
+                if (0 != K32GetModuleFileNameEx(_hProcess, moduleHandle, buffer, (uint)buffer.Capacity))
+                    fileName = buffer.ToString();
+                if (0 != K32GetModuleBaseName(_hProcess, moduleHandle, buffer, (uint)buffer.Capacity))
+                    baseName = buffer.ToString();
+                MODULEINFO moduleInfo = new MODULEINFO();
+                if (K32GetModuleInformation(_hProcess, moduleHandle, out moduleInfo, (uint)Marshal.SizeOf(moduleInfo)))
+                {
+                    yield return new LightProcessModule
+                    {
+                        FileName = fileName,
+                        ModuleName = baseName,
+                        BaseAddress = (ulong)moduleInfo.lpBaseOfDll.ToInt64(),
+                        Size = moduleInfo.SizeOfImage
+                    };
+                }
+            }
+        }
+
+        private struct LightProcessModule
+        {
+            public string ModuleName { get; set; }
+            public string FileName { get; set; }
+            public ulong BaseAddress { get; set; }
+            public uint Size { get; set; }
         }
 
         private struct SYMBOL_INFO
@@ -282,6 +323,32 @@ namespace LiveStacks
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SymCleanup(IntPtr hProcess);
+
+        private const uint LIST_MODULES_32BIT = 0x01;
+        private const uint LIST_MODULES_64BIT = 0x02;
+        private const uint LIST_MODULES_ALL = 0x03;
+        private const uint LIST_MODULES_DEFAULT = 0x0;
+
+        private struct MODULEINFO
+        {
+            public IntPtr lpBaseOfDll;
+            public uint SizeOfImage;
+            public IntPtr EntryPoint;
+        }
+
+        [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool K32EnumProcessModulesEx(IntPtr hProcess, IntPtr[] moduleHandles, uint sizeOfModuleHandles, out uint sizeNeeded, uint filterFlag);
+
+        [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        private static extern uint K32GetModuleFileNameEx(IntPtr hProcess, IntPtr hModule, StringBuilder filename, uint size);
+
+        [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        private static extern uint K32GetModuleBaseName(IntPtr hProcess, IntPtr hModule, StringBuilder baseName, uint size);
+
+        [DllImport("kernel32.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool K32GetModuleInformation(IntPtr hProcess, IntPtr hModule, out MODULEINFO moduleInfo, uint size);
     }
 
     class ManagedTarget

@@ -12,6 +12,9 @@ namespace LiveStacks
     {
         static void Main(string[] args)
         {
+            var testResolver = new StackResolver();
+            testResolver.Resolve(7408, new ulong[] { 0x740D62C4 });
+
             Options options = new Options();
             if (!Parser.Default.ParseArguments(args, options))
                 Environment.Exit(1);
