@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
 using Microsoft.Diagnostics.Tracing.Parsers.Clr;
+using Microsoft.Diagnostics.Tracing;
 
 namespace LiveStacks
 {
@@ -22,6 +23,7 @@ namespace LiveStacks
         private KernelTraceEventParser.Keywords _kernelKeyword;
         private ClrTraceEventParser.Keywords _clrKeyword;
         private string _clrEventName;
+        private Dictionary<int, string> _lastEventNameByThread = new Dictionary<int, string>();
 
         public AggregatedStacks Stacks { get; private set; } = new AggregatedStacks();
 
@@ -58,14 +60,10 @@ namespace LiveStacks
 
             if (_provider == "clr")
             {
-                // TODO To work with arbitrary events, we need to enable the event and the stack walker,
-                //      and then we can get more events than we need because a single keyword can enable
-                //      multiple events. To figure out which events we care about, we need to store the
-                //      last seen event, and when a call stack arrives, look at the last seen event, and
-                //      if it is the event we were asked to collect, then aggregate that call stack.
                 _session.EnableProvider(
                     ClrTraceEventParser.ProviderGuid,
                     matchAnyKeywords: (ulong)(_clrKeyword | ClrTraceEventParser.Keywords.Stack));
+                _session.Source.Clr.All += OnAnyClrEvent;
                 _session.Source.Clr.ClrStackWalk += OnClrStackEvent;
             }
 
@@ -79,7 +77,7 @@ namespace LiveStacks
             {
                 throw new ArgumentException(
                     "Event specification must have two or three components separated by a colon, " +
-                    "e.g. 'kernel:profile' or 'clr:gc:gcallocationtick'.");
+                    "e.g. 'kernel:profile' or 'clr:gc:gc/allocationtick'.");
             }
             if (!SupportedProviders.Contains(parts[0], StringComparer.InvariantCultureIgnoreCase))
             {
@@ -122,9 +120,22 @@ namespace LiveStacks
             }
         }
 
+        private void OnAnyClrEvent(TraceEvent anyEvent)
+        {
+            if (anyEvent.EventName != "ClrStack/Walk")
+                _lastEventNameByThread[anyEvent.ThreadID] = anyEvent.EventName;
+        }
+
         private void OnClrStackEvent(ClrStackWalkTraceData stack)
         {
             if (!ProcessFilter(stack.ProcessID))
+                return;
+
+            string lastEventName;
+            if (!_lastEventNameByThread.TryGetValue(stack.ThreadID, out lastEventName))
+                return;
+
+            if (!lastEventName.Equals(_clrEventName, StringComparison.InvariantCultureIgnoreCase))
                 return;
 
             ulong[] addresses = new ulong[stack.FrameCount];
