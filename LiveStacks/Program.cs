@@ -35,9 +35,10 @@ namespace LiveStacks
                     session.Stacks.Clear();
                     foreach (var stack in stacks)
                     {
-                        // TODO Resolve stack addresses, print folded, etc.
-                        Console.WriteLine($"  {stack.Count,10} [PID {stack.ProcessID}]");
-                        foreach (var symbol in resolver.Resolve(stack.ProcessID, stack.Addresses))
+                        // TODO Print folded if asked
+                        int pid = stack.ProcessID;
+                        Console.WriteLine($"  {stack.Count,10} [{resolver.ProcessName(pid)} {pid}]");
+                        foreach (var symbol in resolver.Resolve(pid, stack.Addresses))
                         {
                             Console.WriteLine("    " + symbol.ToString());
                         }

@@ -59,13 +59,20 @@ namespace LiveStacks
 
         public Symbol[] Resolve(int processID, ulong[] addresses)
         {
+            return ResolverFor(processID).Resolve(addresses);
+        }
+
+        public string ProcessName(int processID) => ResolverFor(processID).ProcessName;
+
+        private ProcessStackResolver ResolverFor(int processID)
+        {
             ProcessStackResolver resolver;
             if (!_resolvers.TryGetValue(processID, out resolver))
             {
                 resolver = new ProcessStackResolver(processID);
                 _resolvers.Add(processID, resolver);
             }
-            return resolver.Resolve(addresses);
+            return resolver;
         }
     }
 
@@ -85,7 +92,11 @@ namespace LiveStacks
             if (isManagedProcess && IsSameArchitecture(processID))
                 _managedTarget = new ManagedTarget(processID);
 
-            // TODO Need IsSameArchitecture check for native target as well :-(
+            // If we are a 32-bit process, we cannot resolve symbols
+            // in a 64-bit target. Just bail.
+            if (Is32BitAttachingTo64Bit(processID))
+                return;
+
             try
             {
                 _nativeTarget = new NativeTarget(processID);
@@ -96,6 +107,8 @@ namespace LiveStacks
                 // so just skip resolving their symbols.
             }
         }
+
+        public string ProcessName => _nativeTarget?.ProcessName;
 
         public Symbol[] Resolve(ulong[] addresses)
         {
@@ -131,6 +144,11 @@ namespace LiveStacks
             }
         }
 
+        static private bool Is32BitAttachingTo64Bit(int processID)
+        {
+            return !Environment.Is64BitProcess && Is64BitProcess(processID);
+        }
+
         static private bool Is64BitProcess(int processID)
         {
             if (!Environment.Is64BitOperatingSystem)
@@ -164,6 +182,7 @@ namespace LiveStacks
     {
         private IntPtr _hProcess;
         private Process _process;
+        private HashSet<string> _loadedModules = new HashSet<string>();
 
         public NativeTarget(int processID)
         {
@@ -172,10 +191,7 @@ namespace LiveStacks
             // TODO Need symsrv.dll to be around for symbol server loads to succeed.
             SymSetOptions(SYMOPT_DEFERRED_LOADS);
             string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
-            // TODO Because we use invadeProcess=true, the caller must have the same bitness again
-            //      We have the same restriction in the ManagedTarget, so probably what would make
-            //      sense is to resolve symbols in a separate helper process :-(
-            if (!SymInitialize(_hProcess, symbolPath, true))
+            if (!SymInitialize(_hProcess, symbolPath, invadeProcess: false))
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
         }
 
@@ -186,16 +202,30 @@ namespace LiveStacks
             _hProcess = IntPtr.Zero;
         }
 
-        public unsafe Symbol ResolveSymbol(ulong address)
+        public string ProcessName => _process.ProcessName;
+
+        public Symbol ResolveSymbol(ulong address)
         {
+            var module = ModuleForAddress(address);
             Symbol result = new Symbol
             {
-                ModuleName = ModuleForAddress(address),
+                ModuleName = module?.ModuleName,
                 Address = address
             };
+
+            if (module != null && !_loadedModules.Contains(module.FileName))
+            {
+                if (0 == SymLoadModule64(_hProcess, IntPtr.Zero, module.FileName, module.ModuleName,
+                    (ulong)module.BaseAddress.ToInt64(), (uint)module.ModuleMemorySize))
+                {
+                    return result;
+                }
+                _loadedModules.Add(module.FileName);
+            }
+
             SYMBOL_INFO symbol = new SYMBOL_INFO();
             symbol.SizeOfStruct = 88;
-            symbol.MaxNameLen = 256;
+            symbol.MaxNameLen = 1024;
             ulong displacement;
             if (SymFromAddr(_hProcess, address, out displacement, ref symbol))
             {
@@ -205,12 +235,11 @@ namespace LiveStacks
             return result;
         }
 
-        private string ModuleForAddress(ulong address)
+        private ProcessModule ModuleForAddress(ulong address)
         {
             return _process.Modules.Cast<ProcessModule>().FirstOrDefault(
                 pm => pm.BaseAddress.ToInt64() <= (long)address &&
-                (pm.BaseAddress.ToInt64() + pm.ModuleMemorySize) > (long)address)
-                ?.ModuleName;
+                (pm.BaseAddress.ToInt64() + pm.ModuleMemorySize) > (long)address);
         }
 
         private struct SYMBOL_INFO
@@ -230,7 +259,7 @@ namespace LiveStacks
             public uint Tag;
             public uint NameLen;
             public uint MaxNameLen;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 1024)]
             public string Name;
         }
 
@@ -246,6 +275,9 @@ namespace LiveStacks
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
         private static extern uint SymSetOptions(uint options);
+
+        [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true, CharSet = CharSet.Ansi)]
+        private static extern ulong SymLoadModule64(IntPtr hProcess, IntPtr hFile, string imageName, string moduleName, ulong baseAddress, uint size);
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
