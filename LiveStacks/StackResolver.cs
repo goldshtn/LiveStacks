@@ -82,8 +82,7 @@ namespace LiveStacks
         private readonly int _processID;
         private ManagedTarget _managedTarget;
         private NativeTarget _nativeTarget;
-
-        // TODO LRU cache of recently-resolved symbols
+        private SymbolCache _symbolCache = new SymbolCache(1024);
 
         public ProcessStackResolver(int processID)
         {
@@ -112,7 +111,7 @@ namespace LiveStacks
 
         public Symbol[] Resolve(ulong[] addresses)
         {
-            return addresses.Select(address => Resolve(address)).ToArray();
+            return addresses.Select(address => _symbolCache.GetOrAdd(address, Resolve)).ToArray();
         }
 
         private Symbol Resolve(ulong address)
@@ -124,6 +123,9 @@ namespace LiveStacks
 
             if (String.IsNullOrEmpty(result.MethodName) && _nativeTarget != null)
                 result = _nativeTarget.ResolveSymbol(address);
+
+            // TODO We are currently not resolving kernel symbols at all. They do not lie in
+            //      any user-space module, so we don't recognize the addresses.
 
             return result;
         }

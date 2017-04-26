@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -34,6 +35,7 @@ namespace LiveStacks
                 lock (timerSyncObject)
                 {
                     Console.WriteLine(DateTime.Now.ToLongTimeString());
+                    Stopwatch sw = Stopwatch.StartNew();
                     var stacks = session.Stacks.TopStacks(options.TopStacks);
                     session.Stacks.Clear();
                     foreach (var stack in stacks)
@@ -46,6 +48,7 @@ namespace LiveStacks
                             Console.WriteLine("    " + symbol.ToString());
                         }
                     }
+                    Console.WriteLine($"  Time aggregating/resolving: {sw.ElapsedMilliseconds}ms");
                 }
             }, null, TimeSpan.FromSeconds(options.IntervalSeconds), TimeSpan.FromSeconds(options.IntervalSeconds));
             // TODO If the interval is 0, the user wants to print every single stack
