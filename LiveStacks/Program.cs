@@ -87,12 +87,12 @@ namespace LiveStacks
         private static void PrintFoldedStack(AggregatedStack stack)
         {
             int pid = stack.ProcessID;
-            Console.Write($"{_resolver.ProcessName(pid)} ({pid});");
+            Console.Write($"{_resolver.ProcessName(pid)} ({pid})");
             foreach (var symbol in _resolver.Resolve(pid, stack.Addresses).Reverse())
             {
-                Console.Write(symbol.ToString() + ";");
+                Console.Write(";" + symbol.ToString());
             }
-            Console.WriteLine(stack.Count);
+            Console.WriteLine(" " + stack.Count);
         }
     }
 }
