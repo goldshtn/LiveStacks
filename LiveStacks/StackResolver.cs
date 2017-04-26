@@ -125,7 +125,7 @@ namespace LiveStacks
                     module.FileName.EndsWith("mscorwks.dll", StringComparison.InvariantCultureIgnoreCase) ||
                     module.FileName.EndsWith("coreclr.dll", StringComparison.InvariantCultureIgnoreCase));
             }
-            catch (Exception)
+            catch (Win32Exception ex) when (ex.HResult == E_ACCESSDENIED)
             {
                 return false; // This might be a process we can't touch
             }
