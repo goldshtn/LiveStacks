@@ -357,22 +357,23 @@ namespace LiveStacks
     class ManagedTarget
     {
         private DataTarget _dataTarget;
-        private ClrRuntime _runtime;
+        private List<ClrRuntime> _runtimes;
         private List<ModuleInfo> _modules;
 
         public ManagedTarget(int processID)
         {
             // TODO This can only be done from a process with the same bitness, so we might want to move this out
             _dataTarget = DataTarget.AttachToProcess(processID, 1000, AttachFlag.Passive);
-            _runtime = _dataTarget.ClrVersions[0].CreateRuntime();  // TODO There could be more than one runtime
+            _runtimes = _dataTarget.ClrVersions.Select(clr => clr.CreateRuntime()).ToList();
             _modules = new List<ModuleInfo>(_dataTarget.EnumerateModules());
         }
 
         public Symbol ResolveSymbol(ulong address)
         {
-            // TODO Switch to binary search if this poses a perf issue
-            var module = _modules.FirstOrDefault(m => m.ImageBase <= address && (m.ImageBase + m.FileSize) > address);
-            var method = _runtime.GetMethodByAddress(address);
+            var module = _modules.FirstOrDefault(
+                m => m.ImageBase <= address && (m.ImageBase + m.FileSize) > address);
+            var method = _runtimes.Select(runtime => runtime.GetMethodByAddress(address))
+                                  .FirstOrDefault(m => m != null);
             if (method != null)
             {
                 return new Symbol
