@@ -105,6 +105,10 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\Microsoft.Diagnostics.Tracing.TraceEvent.1.0.41\build\Microsoft.Diagnostics.Tracing.TraceEvent.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Diagnostics.Tracing.TraceEvent.1.0.41\build\Microsoft.Diagnostics.Tracing.TraceEvent.targets'))" />
   </Target>
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /Y "C:\Program Files (x86)\Windows Kits\10\Debuggers\$(PlatformName)\symsrv.dll" $(TargetDir)
+xcopy /Y "C:\Program Files (x86)\Windows Kits\10\Debuggers\$(PlatformName)\dbghelp.dll" $(TargetDir)</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

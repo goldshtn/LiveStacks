@@ -188,7 +188,10 @@ namespace LiveStacks
         {
             _process = Process.GetProcessById(processID);
             _hProcess = _process.Handle;
-            // TODO Need symsrv.dll and dbghelp.dll to be around for symbol server loads to succeed.
+            // Note that symsrv.dll and an updated dbghelp.dll (from the Debugging Tools)
+            // need to be around for the symbol loads to succeed. There is a post-build
+            // step that copies them over to the output directory, or we could bundle them
+            // with the project.
             SymSetOptions(SYMOPT_DEFERRED_LOADS);
             string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
             if (!SymInitialize(_hProcess, symbolPath, invadeProcess: false))
