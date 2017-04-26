@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -194,7 +195,7 @@ namespace LiveStacks
             // need to be around for the symbol loads to succeed. There is a post-build
             // step that copies them over to the output directory, or we could bundle them
             // with the project.
-            SymSetOptions(SYMOPT_DEFERRED_LOADS);
+            SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
             string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
             if (!SymInitialize(_hProcess, symbolPath, invadeProcess: false))
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
@@ -317,6 +318,7 @@ namespace LiveStacks
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SymFromAddr(IntPtr hProcess, ulong address, out ulong displacement, ref SYMBOL_INFO symbol);
 
+        private const uint SYMOPT_UNDNAME = 0x02;
         private const uint SYMOPT_DEFERRED_LOADS = 0x00000004;
 
         [DllImport("dbghelp.dll", CallingConvention = CallingConvention.Winapi, SetLastError = true)]
@@ -380,7 +382,7 @@ namespace LiveStacks
             {
                 return new Symbol
                 {
-                    ModuleName = module?.FileName ?? "[unknown]",
+                    ModuleName = Path.GetFileName(module?.FileName ?? "[unknown]"),
                     MethodName = method.GetFullSignature(),
                     OffsetInMethod = (uint)(address - method.NativeCode),
                     Address = address
