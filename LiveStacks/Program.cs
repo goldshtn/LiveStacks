@@ -88,7 +88,7 @@ namespace LiveStacks
         {
             int pid = stack.ProcessID;
             Console.Write($"{_resolver.ProcessName(pid)} ({pid});");
-            foreach (var symbol in _resolver.Resolve(pid, stack.Addresses))
+            foreach (var symbol in _resolver.Resolve(pid, stack.Addresses).Reverse())
             {
                 Console.Write(symbol.ToString() + ";");
             }
