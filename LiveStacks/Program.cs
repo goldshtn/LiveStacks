@@ -25,7 +25,15 @@ namespace LiveStacks
 
             _invocationsLeft = _options.Count == -1 ? int.MaxValue : _options.Count;
 
-            _session = new LiveSession(_options.StackEvent, _options.PidsToFilter, _options.IncludeKernelFrames);
+            try
+            {
+                _session = new LiveSession(_options.StackEvent, _options.PidsToFilter, _options.IncludeKernelFrames);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine("Error creating session: " + ex.Message);
+                Environment.Exit(1);
+            }
             Console.CancelKeyPress += (_, __) =>
             {
                 Console.WriteLine("Ctrl+C pressed, stopping...");
@@ -82,6 +90,7 @@ namespace LiveStacks
             {
                 Console.WriteLine("    " + symbol.ToString());
             }
+            Console.WriteLine();
         }
 
         private static void PrintFoldedStack(AggregatedStack stack)

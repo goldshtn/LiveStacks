@@ -39,9 +39,10 @@ namespace LiveStacks
             HelpText = "Display stacks only from this process (by id)")]
         public int ProcessID { get; set; }
 
-        // TODO Need to think about how to specify this, CLR and kernel events only?
-        [Option('e', "event", Required = false, DefaultValue = "sample",
-            HelpText = "The event for which to capture call stacks")]
+        [Option('e', "event", Required = false, DefaultValue = "kernel:profile",
+            HelpText = "The event for which to capture call stacks. For kernel events, specify the " +
+            "keyword only, e.g. \"kernel:profile\". For CLR events, specify the keyword and the event name, " +
+            "e.g. \"clr:gc:gcstart\". Only kernel and CLR events are currently supported.")]
         public string StackEvent { get; set; }
 
         public IEnumerable<int> PidsToFilter

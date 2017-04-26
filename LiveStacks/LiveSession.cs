@@ -13,16 +13,21 @@ namespace LiveStacks
 {
     class LiveSession
     {
+        private static readonly string[] SupportedProviders = new[] { "kernel", "clr" };
+
         private TraceEventSession _session;
-        private readonly string _stackEvent;
         private List<int> _processIDs = new List<int>();
         private readonly bool _includeKernelFrames;
+        private string _provider;
+        private KernelTraceEventParser.Keywords _kernelKeyword;
+        private ClrTraceEventParser.Keywords _clrKeyword;
+        private string _clrEventName;
 
         public AggregatedStacks Stacks { get; private set; } = new AggregatedStacks();
 
         public LiveSession(string stackEvent, IEnumerable<int> processIDs, bool includeKernelFrames)
         {
-            _stackEvent = stackEvent;
+            ParseProvider(stackEvent);
             if (_processIDs != null)
             {
                 _processIDs.AddRange(processIDs);
@@ -45,15 +50,13 @@ namespace LiveStacks
 
             // TODO Should we use _session.StackCompression? What would the events look like?
 
-            if (_stackEvent == "sample")
+            if (_provider == "kernel")
             {
-                _session.EnableKernelProvider(
-                    KernelTraceEventParser.Keywords.Profile,
-                    stackCapture: KernelTraceEventParser.Keywords.Profile);
+                _session.EnableKernelProvider(_kernelKeyword, stackCapture: _kernelKeyword);
                 _session.Source.Kernel.StackWalkStack += OnKernelStackEvent;
             }
 
-            if (_stackEvent == "gc")
+            if (_provider == "clr")
             {
                 // TODO To work with arbitrary events, we need to enable the event and the stack walker,
                 //      and then we can get more events than we need because a single keyword can enable
@@ -62,11 +65,61 @@ namespace LiveStacks
                 //      if it is the event we were asked to collect, then aggregate that call stack.
                 _session.EnableProvider(
                     ClrTraceEventParser.ProviderGuid,
-                    matchAnyKeywords: (ulong)(ClrTraceEventParser.Keywords.GC | ClrTraceEventParser.Keywords.Stack));
+                    matchAnyKeywords: (ulong)(_clrKeyword | ClrTraceEventParser.Keywords.Stack));
                 _session.Source.Clr.ClrStackWalk += OnClrStackEvent;
             }
 
             _session.Source.Process();
+        }
+
+        private void ParseProvider(string eventSpec)
+        {
+            string[] parts = eventSpec.Split(':');
+            if (parts.Length != 2 && parts.Length != 3)
+            {
+                throw new ArgumentException(
+                    "Event specification must have two or three components separated by a colon, " +
+                    "e.g. 'kernel:profile' or 'clr:gc:gcallocationtick'.");
+            }
+            if (!SupportedProviders.Contains(parts[0], StringComparer.InvariantCultureIgnoreCase))
+            {
+                throw new ArgumentException(
+                    "Event specification provider was not recognized. Supported providers: " +
+                    String.Join(", ", SupportedProviders));
+            }
+            _provider = parts[0].ToLower();
+            ParseEvent(parts.Skip(1).ToArray());
+        }
+
+        private void ParseEvent(string[] parts)
+        {
+            if (_provider == "kernel")
+            {
+                string keyword = parts[0];
+                KernelTraceEventParser.Keywords parsedKeyword;
+                if (!Enum.TryParse(keyword, true, out parsedKeyword))
+                {
+                    throw new ArgumentException("Unrecognized kernel keyword: '" + keyword + "'.");
+                }
+                _kernelKeyword = parsedKeyword;
+            }
+            else if (_provider == "clr")
+            {
+                if (parts.Length != 2)
+                {
+                    throw new ArgumentException("CLR event specification must contain a keyword and an event name.");
+                }
+
+                string keyword = parts[0];
+                string eventName = parts[1];
+                ClrTraceEventParser.Keywords parsedKeyword;
+                if (!Enum.TryParse(keyword, true, out parsedKeyword))
+                {
+                    throw new ArgumentException("Unrecognized CLR keyword: '" + keyword + "'.");
+                }
+                _clrKeyword = parsedKeyword;
+                _clrEventName = eventName.ToLower();
+            }
         }
 
         private void OnClrStackEvent(ClrStackWalkTraceData stack)
