@@ -20,10 +20,22 @@ Collect information for a specific process:
 LiveStacks -p 7408
 ```
 
-Customize the display interval (-i) and number of top stacks to display (-T):
+Trace stacks for triggered garbage collections (when the application calls `GC.Collect()`):
 
 ```
-LiveStacks -i 1 -T 5
+LiveStacks -e clr:gc:gc/triggered
+```
+
+Trace stacks for file I/O operations:
+
+```
+LiveStacks -e kernel:fileioinit
+```
+
+Trace stacks for image load (DLL/EXE) events with a custom display interval (-i) and number of top stacks to display (-T):
+
+```
+LiveStacks -e kernel:imageload -i 1 -T 5
 ```
 
 Print stacks in folded format, suitable for direct pass-through to the [FlameGraph.pl](https://github.com/BrendanGregg/FlameGraph) script, and only print once (-c).
