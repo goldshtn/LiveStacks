@@ -188,6 +188,8 @@ namespace LiveStacks
         private IntPtr _hProcess;
         private Process _process;
         private HashSet<string> _loadedModules = new HashSet<string>();
+        private List<LightProcessModule> _processModules;
+        private DateTimeOffset _lastRefreshTime;
 
         public NativeTarget(int processID)
         {
@@ -201,6 +203,7 @@ namespace LiveStacks
             string symbolPath = Environment.GetEnvironmentVariable("_NT_SYMBOL_PATH");
             if (!SymInitialize(_hProcess, symbolPath, invadeProcess: false))
                 Marshal.ThrowExceptionForHR(Marshal.GetHRForLastWin32Error());
+            RefreshProcessModules();
         }
 
         public void Dispose()
@@ -218,12 +221,14 @@ namespace LiveStacks
             Symbol result = new Symbol
             {
                 ModuleName = module.ModuleName,
+                OffsetInMethod = address - module.BaseAddress,
                 Address = address
             };
 
             if (!String.IsNullOrEmpty(module.FileName) && !_loadedModules.Contains(module.FileName))
             {
-                if (0 == SymLoadModule64(_hProcess, IntPtr.Zero, module.FileName, module.ModuleName,
+                // TODO Symbols for 32-bit ntdll in a WoW64 process are not resolved properly
+                if (0 == SymLoadModule64(_hProcess, IntPtr.Zero, module.FileName, null,
                     module.BaseAddress, module.Size))
                 {
                     return result;
@@ -245,11 +250,21 @@ namespace LiveStacks
 
         private LightProcessModule ModuleForAddress(ulong address)
         {
+            // TODO Think of the appropriate interval for this, maybe take it from the external interval value
+            if (DateTime.Now - _lastRefreshTime > TimeSpan.FromSeconds(1))
+                RefreshProcessModules();
+
             // System.Diagnostics.Process.Modules returns only the 64-bit modules
             // if attached to a 32-bit target, so we have to use our own implementation.
-            return ProcessModules().FirstOrDefault(
+            return _processModules.FirstOrDefault(
                 pm => pm.BaseAddress <= address &&
                 (pm.BaseAddress + pm.Size) > address);
+        }
+
+        private void RefreshProcessModules()
+        {
+            _processModules = ProcessModules().ToList();
+            _lastRefreshTime = DateTime.Now;
         }
 
         private IEnumerable<LightProcessModule> ProcessModules()
