@@ -74,44 +74,94 @@ Native process, heavy CPU consumption:
 
 The numbers on top (811, 400) are the number of samples captured with this call stack. Then the process name and process ID are displayed, followed by the actual call stack.
 
-Visual Studio process:
+Call stack from `GC/Triggered` event in Visual Studio process -- note the allocating stack, which is deep in the XML schema editor and validator:
 
 ```
-         28 [devenv 4196]
-            6DB9F614
-            6DB96369
-            6DC16EA5
-            6DB81CF7
-            6DC2BFA1
-            6DC1CBB0
-        7FF9F0832A11
-        7FF9F0868986
-        7FF9F0819FAE
+5:17:04 PM
+           2 [devenv 11200]
+    clr.dll!EtwCallout+0x12E
+    clr.dll!CoTemplate_qh+0x6F
+    clr.dll!WKS::GCHeap::GarbageCollectGeneration+0x1E5
+    clr.dll!WKS::gc_heap::try_allocate_more_space+0x14D
+    clr.dll!WKS::gc_heap::allocate_more_space+0x18
+    clr.dll!WKS::GCHeap::Alloc+0x5C
+    clr.dll!Alloc+0x87
+    clr.dll!AllocateObject+0x99
+    clr.dll!JIT_New+0x6B
+    System.dll!System.Uri.CreateHelper(System.String, Boolean, System.UriKind, System.UriFormatException ByRef)+0x6E
+    System.dll!System.Uri.TryCreate(System.String, System.UriKind, System.Uri ByRef)+0x26
+    Microsoft.VisualStudio.Shell.14.0.dll!Microsoft.VisualStudio.Shell.Url.Init(System.String)+0x1D
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlHelper.IsSamePath(System.String, System.String)+0x88
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.HandleSchemaException(System.Exception, System.Xml.Schema.XmlSeverityType)+0x20B
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.OnValidationError(System.Object, System.Xml.Schema.ValidationEventArgs)+0x1F
+    System.Xml.dll!System.Xml.Schema.XmlSchemaValidator.SendValidationEvent(System.Xml.Schema.XmlSchemaValidationException, System.Xml.Schema.XmlSeverityType)+0x9F
+    System.Xml.dll!System.Xml.Schema.XmlSchemaValidator.SendValidationEvent(System.String, System.String, System.Xml.Schema.XmlSeverityType)+0x8A
+    System.Xml.dll!System.Xml.Schema.XmlSchemaValidator.ValidateAttribute(System.String, System.String, System.Xml.Schema.XmlValueGetter, System.String, System.Xml.Schema.XmlSchemaInfo)+0x519CB1
+    System.Xml.dll!System.Xml.Schema.XmlSchemaValidator.ValidateAttribute(System.String, System.String, System.Xml.Schema.XmlValueGetter, System.Xml.Schema.XmlSchemaInfo)+0x1E
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.ValidateXmlAttributes(Microsoft.XmlEditor.XmlElement)+0x154
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.ValidateStartElement(Microsoft.XmlEditor.XmlElement)+0x186
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.VisitXmlElement(Microsoft.XmlEditor.XmlElement)+0x125
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitorBase.Visit(Microsoft.XmlEditor.Node)+0xD6
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitor.Visit(Microsoft.XmlEditor.Node)+0x6F
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.VisitXmlElement(Microsoft.XmlEditor.XmlElement)+0x1CA
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitorBase.Visit(Microsoft.XmlEditor.Node)+0xD6
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitor.Visit(Microsoft.XmlEditor.Node)+0x6F
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.VisitXmlElement(Microsoft.XmlEditor.XmlElement)+0x1CA
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitorBase.Visit(Microsoft.XmlEditor.Node)+0xD6
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitor.Visit(Microsoft.XmlEditor.Node)+0x6F
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitorBase.VisitChildren(Microsoft.XmlEditor.XmlNode)+0x39
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitorBase.VisitXmlDocument(Microsoft.XmlEditor.XmlDocument)+0x19
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Checker.VisitXmlDocument(Microsoft.XmlEditor.XmlDocument)+0x5EA
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitorBase.Visit(Microsoft.XmlEditor.Node)+0x128
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlVisitor.Visit(Microsoft.XmlEditor.Node)+0x89
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Compiler.Compile(Microsoft.XmlEditor.XmlParseRequest, Microsoft.XmlEditor.XmlDocument, Microsoft.XmlEditor.ErrorNodeList)+0x91
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.Compiler.Compile(Microsoft.XmlEditor.XmlParseRequest, Microsoft.XmlEditor.ErrorNodeList)+0x3D
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlLanguageService.CompileDocument(Microsoft.XmlEditor.XmlParseRequest)+0x97
+    Microsoft.XmlEditor.dll!Microsoft.XmlEditor.XmlLanguageService.ParseSource(Microsoft.VisualStudio.Package.ParseRequest)+0x231
+    Microsoft.VisualStudio.Package.LanguageService.14.0.dll!Microsoft.VisualStudio.Package.LanguageService.ParseRequest(Microsoft.VisualStudio.Package.ParseRequest)+0x76
+    Microsoft.VisualStudio.Package.LanguageService.14.0.dll!Microsoft.VisualStudio.Package.LanguageService.ParseThread()+0x141
+    mscorlib.dll!System.Threading.ThreadHelper.ThreadStart_Context(System.Object)+0x9D
+    mscorlib.dll!System.Threading.ExecutionContext.RunInternal(System.Threading.ExecutionContext, System.Threading.ContextCallback, System.Object, Boolean)+0xEA
+    mscorlib.dll!System.Threading.ExecutionContext.Run(System.Threading.ExecutionContext, System.Threading.ContextCallback, System.Object, Boolean)+0x16
+    mscorlib.dll!System.Threading.ExecutionContext.Run(System.Threading.ExecutionContext, System.Threading.ContextCallback, System.Object)+0x41
+    mscorlib.dll!System.Threading.ThreadHelper.ThreadStart()+0x44
+    clr.dll!CallDescrWorkerInternal+0x34
+    clr.dll!CallDescrWorkerWithHandler+0x6B
+    clr.dll!MethodDescCallSite::CallTargetWorker+0x16A
+    clr.dll!ThreadNative::KickOffThread_Worker+0x173
+    clr.dll!Thread::DoExtraWorkForFinalizer+0x1B1
+    clr.dll!Thread::DoExtraWorkForFinalizer+0x234
+    clr.dll!Thread::DoExtraWorkForFinalizer+0x5F8
+    clr.dll!Thread::DoExtraWorkForFinalizer+0x690
+    clr.dll!ThreadNative::KickOffThread+0x256
+    clr.dll!Thread::intermediateThreadProc+0x55
+    KERNEL32.DLL!BaseThreadInitThunk+0x24
+    ntdll.dll!__RtlUserThreadStart+0x2F
+    ntdll.dll!_RtlUserThreadStart+0x1B
+```
+
+Call stack from `SystemCall` event across the system -- the specific system call can be identified by looking at the WoW64 stack prior to entering the 64-bit NTDLL:
+
+```
+       17275 [devenv 11200]
+    wow64win.dll!NtUserCallOneParam+0x14
+    wow64win.dll!whNtUserCallOneParam+0x46
+    wow64.dll!Wow64SystemServiceEx+0x153
+    wow64cpu.dll!ServiceNoTurbo+0xB
+    wow64.dll!Wow64KiUserCallbackDispatcher+0x3930
+    wow64.dll!Wow64LdrpInitialize+0x120
+    ntdll.dll!LdrpInitializeProcess+0xFC1
+    ntdll.dll!_LdrpInitialize+0x506BC
+    ntdll.dll!LdrpInitialize+0x3B
+    ntdll.dll!LdrInitializeThunk+0xE
     win32u.dll!NtUserCallOneParam+0xC
-    USER32.dll!GetKeyboardLayout+0x1C
-    WindowsBase.ni.dll!DomainNeutralILStubClass.IL_STUB_PInvoke(Int32)+0x34
-    PresentationCore.ni.dll!System.Windows.Input.InputMethod.IsImm32ImeCurrent()+0x25
-    PresentationCore.ni.dll!System.Windows.Input.TextServicesManager.PostProcessInput(System.Object, System.Windows.Input.ProcessInputEventArgs)+0x1F
-    PresentationCore.ni.dll!System.Windows.Input.InputManager.RaiseProcessInputEventHandlers(System.Windows.Input.ProcessInputEventHandler, System.Windows.Input.ProcessInputEventArgs)+0x9A
-    PresentationCore.ni.dll!System.Windows.Input.InputManager.ProcessStagingArea()+0x23F
-    PresentationCore.ni.dll!System.Windows.Input.InputManager.ProcessInput(System.Windows.Input.InputEventArgs)+0x45
-    PresentationCore.ni.dll!System.Windows.Input.InputProviderSite.ReportInput(System.Windows.Input.InputReport)+0x62
-    PresentationCore.ni.dll!System.Windows.Interop.HwndMouseInputProvider.ReportInput(IntPtr, System.Windows.Input.InputMode, Int32, System.Windows.Input.RawMouseActions, Int32, Int32, Int32)+0x2D8
-    PresentationCore.ni.dll!System.Windows.Interop.HwndMouseInputProvider.FilterMessage(IntPtr, MS.Internal.Interop.WindowMessage, IntPtr, IntPtr, Boolean ByRef)+0x1FD
-    PresentationCore.ni.dll!System.Windows.Interop.HwndSource.InputFilterMessage(IntPtr, Int32, IntPtr, IntPtr, Boolean ByRef)+0x6C
-    WindowsBase.ni.dll!MS.Win32.HwndWrapper.WndProc(IntPtr, Int32, IntPtr, IntPtr, Boolean ByRef)+0x9B
-    WindowsBase.ni.dll!MS.Win32.HwndSubclass.DispatcherCallbackOperation(System.Object)+0x6B
-    WindowsBase.ni.dll!System.Windows.Threading.ExceptionWrapper.InternalRealCall(System.Delegate, System.Object, Int32)+0x4E
-    WindowsBase.ni.dll!System.Windows.Threading.ExceptionWrapper.TryCatchWhen(System.Object, System.Delegate, System.Object, Int32, System.Delegate)+0x34
-    WindowsBase.ni.dll!System.Windows.Threading.Dispatcher.LegacyInvokeImpl(System.Windows.Threading.DispatcherPriority, System.TimeSpan, System.Delegate, System.Object, Int32)+0x10B
-    WindowsBase.ni.dll!MS.Win32.HwndSubclass.SubclassWndProc(IntPtr, Int32, IntPtr, IntPtr)+0xEE
-             31DD36A
-    USER32.dll!_InternalCallWinProc+0x2B
-    USER32.dll!UserCallWinProcCheckWow+0x30A
-    USER32.dll!DispatchMessageWorker+0x234
-    USER32.dll!DispatchMessageW+0x10
-    msenv.dll!MainMessageLoop::ProcessMessage+0xC6
-    msenv.dll!CMsoCMHandler::EnvironmentMsgLoop+0xDE
+    USER32.dll!GetQueueStatus+0x68
+    msenv.dll!CMsoCMHandler::FContinueIdle+0x1B
+    msenv.dll!SCM::FContinueIdle+0x25
+    msenv.dll!SCM::FDoIdle+0xD2
+    msenv.dll!SCM_MsoStdCompMgr::FDoIdle+0x11
+    msenv.dll!MainMessageLoop::DoIdle+0x1A
+    msenv.dll!CMsoCMHandler::EnvironmentMsgLoop+0x125
     msenv.dll!CMsoCMHandler::FPushMessageLoop+0x105
     msenv.dll!SCM::FPushMessageLoop+0xB9
     msenv.dll!SCM_MsoCompMgr::FPushMessageLoop+0x2A
@@ -119,12 +169,12 @@ Visual Studio process:
     msenv.dll!VStudioMainLogged+0x5BD
     msenv.dll!VStudioMain+0x7C
     devenv.exe!util_CallVsMain+0xDE
-    devenv.exe!CDevEnvAppId::Run+0xBA4
-    devenv.exe!WinMain+0xBD
+    devenv.exe!CDevEnvAppId::Run+0xB99
+    devenv.exe!WinMain+0xB8
     devenv.exe!__scrt_common_main_seh+0xFD
     KERNEL32.DLL!BaseThreadInitThunk+0x24
-    ntdll.dll!__RtlUserThreadStart+0x2F
-    ntdll.dll!_RtlUserThreadStart+0x1B
+    ntdll.dll!+0x6587D
+    ntdll.dll!+0x6584D
 ```
 
 ## Generating Flame Graphs
@@ -147,6 +197,12 @@ Creating arbitrary kernel ETW sessions requires Windows 8 or later, and administ
 To resolve managed symbols, the target process must currently have the same bitness as the tool. If this condition isn't met, managed symbols are not resolved but native symbols will still work properly. This can be addressed in the future by moving the managed symbol resolution into a separate helper process.
 
 Kernel symbols are currently not resolved, and filtered out by default.
+
+## Overhead
+
+The tool's overhead mostly depends on the number of events traced. For example, CPU sampling with default settings across the system runs at virtually 0% CPU overhead during collection. System call collection on an idle system was observed at 1-2% CPU usage, spiking to 5-10% when heavy I/O processes (issuing approximately 100K system calls per second) were running. As with most performance tools, measure in a stable test environment before deploying to production.
+
+Additionally, processing symbols to display call stacks can lead to spikes of CPU, disk, and network activity as symbols are downloaded, loaded from disk, parsed in memory, and then cached. During heavy symbol processing, LiveStacks will routinely exhibit 100% CPU utilization for short time periods. To address this, you can limit the number of stacks displayed with the `-T` switch.
 
 ## Building
 
