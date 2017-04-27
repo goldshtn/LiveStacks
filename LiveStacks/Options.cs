@@ -14,11 +14,14 @@ namespace LiveStacks
         [Option('f', "folded", Required =false, DefaultValue = false,
             HelpText = "Emit folded stacks in a format suitable for flame graph generation")]
         public bool FoldedStacks { get; set; }
-        // TODO Do we want to include the actual flame graph generation too?
 
         [Option('T', "top", Required = false, DefaultValue = 10,
-            HelpText = "Print the top stacks, sorted by popularity")]
+            HelpText = "Print the top stacks, sorted by popularity (disabled for folded stacks)")]
         public int TopStacks { get; set; }
+
+        [Option('m', "minsamples", Required = false, DefaultValue = 0,
+            HelpText = "The minimum number of samples a stack must have to be included in the output")]
+        public int MinimumSamples { get; set; }
 
         [Option('i', "interval", Required = false, DefaultValue = 0,
             HelpText = "How often to print the stack summary (in seconds; by default, wait for Ctrl+C)")]

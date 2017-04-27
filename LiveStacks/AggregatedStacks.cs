@@ -95,12 +95,14 @@ namespace LiveStacks
         /// Get the top stacks from the recorded trace.
         /// </summary>
         /// <param name="top">The number of stacks to return.</param>
+        /// <param name="minSamples">The minimum number of samples a returned stack must have.</param>
         /// <returns>A dictionary that contains the top <see cref="top"/> stacks
         /// by number of occurrences.</returns>
-        public List<AggregatedStack> TopStacks(int top)
+        public List<AggregatedStack> TopStacks(int top, int minSamples)
         {
             return (from kvp in _pidStacks
                  from stacks in kvp.Value.CountedStacks
+                 where stacks.Value >= minSamples
                  orderby stacks.Value descending
                  select new AggregatedStack { ProcessID = kvp.Key, Count = stacks.Value, Addresses = stacks.Key.Addresses }
                  ).Take(top).ToList();

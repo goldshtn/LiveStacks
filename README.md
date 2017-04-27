@@ -127,6 +127,19 @@ Visual Studio process:
     ntdll.dll!_RtlUserThreadStart+0x1B
 ```
 
+## Generating Flame Graphs
+
+To generate a flame graph on Windows, you will need to [install Perl](https://www.perl.org/get.html) (I had a good experience with Strawberry Perl). On all platforms, you will need to download the [FlameGraph.pl](https://github.com/BrendanGregg/FlameGraph) script. Then, run LiveStacks in folded mode and pass the stacks through to FlameGraph.pl. In the following example, we sample system activity for 10 seconds, and then print output in folded format, which is later passed to the flame graph generator.
+
+```
+LiveStacks -c 1 -i 10 -f > folded.stacks
+perl FlameGraph.pl folded.stacks > sampled.svg
+```
+
+Here is what a sample flame graph might look like:
+
+![Flame graph generated from LiveStacks folded output](sampled.svg)
+
 ## Requirements/Limitations
 
 Creating arbitrary kernel ETW sessions requires Windows 8 or later, and administrative privileges.

@@ -60,17 +60,26 @@ namespace LiveStacks
 
         public Symbol[] Resolve(int processID, ulong[] addresses)
         {
-            return ResolverFor(processID).Resolve(addresses);
+            return ResolverFor(processID)?.Resolve(addresses) ?? addresses.Select(Symbol.Unknown).ToArray();
         }
 
-        public string ProcessName(int processID) => ResolverFor(processID).ProcessName;
+        public string ProcessName(int processID) => ResolverFor(processID)?.ProcessName ?? "UNKNOWN";
 
         private ProcessStackResolver ResolverFor(int processID)
         {
-            ProcessStackResolver resolver;
+            ProcessStackResolver resolver = null;
             if (!_resolvers.TryGetValue(processID, out resolver))
             {
-                resolver = new ProcessStackResolver(processID);
+                try
+                {
+                    resolver = new ProcessStackResolver(processID);
+                }
+                catch (Exception ex)
+                {
+                    // If we fail to create the stack resolver for any reason, we will not resolve
+                    // symbols for that process.
+                    Trace.WriteLine($"Error creating resolver for process {processID}: {ex.ToString()}");
+                }
                 _resolvers.Add(processID, resolver);
             }
             return resolver;
@@ -97,15 +106,7 @@ namespace LiveStacks
             if (Is32BitAttachingTo64Bit(processID))
                 return;
 
-            try
-            {
-                _nativeTarget = new NativeTarget(processID);
-            }
-            catch (Win32Exception ex) when (ex.HResult == E_ACCESSDENIED)
-            {
-                // We can't open a process handle to certain processes,
-                // so just skip resolving their symbols.
-            }
+            _nativeTarget = new NativeTarget(processID);
         }
 
         public string ProcessName => _nativeTarget?.ProcessName;

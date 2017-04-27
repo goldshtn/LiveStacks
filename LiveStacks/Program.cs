@@ -19,6 +19,7 @@ namespace LiveStacks
         private static Timer _timer;
         private static int _invocationsLeft;
         private static TimeSpan _interval = TimeSpan.Zero;
+        private static DateTime _lastTimerInvocation = DateTime.Now;
 
         private static void Main()
         {
@@ -44,9 +45,11 @@ namespace LiveStacks
             SetupTimer();
             _session.Start();
 
-            // Produce one final printout before quitting. If there was no interval, this could
-            // be the only printout we produce.
-            OnTimer();
+            // If there had been no timer, this is the only printout we will produce:
+            if (_interval == TimeSpan.Zero)
+            {
+                OnTimer();
+            }
         }
 
         private static void SetupTimer()
@@ -59,9 +62,16 @@ namespace LiveStacks
             object timerSyncObject = new object();
             _timer = new Timer(_ =>
             {
-                // Prevent multiple invocations of the timer from running concurrently.
+                // Prevent multiple invocations of the timer from running concurrently,
+                // and if not enough time has elapsed, don't run the timer procedure again.
+                // This may happen if there are a lot of symbols to resolve, and the timer
+                // can't keep up (at least at first).
                 lock (timerSyncObject)
                 {
+                    if (DateTime.Now - _lastTimerInvocation < _interval)
+                        return;
+
+                    _lastTimerInvocation = DateTime.Now;
                     OnTimer();
                     if (--_invocationsLeft == 0)
                     {
@@ -81,6 +91,11 @@ namespace LiveStacks
             _options = new Options();
             if (!parser.ParseArguments(Environment.GetCommandLineArgs(), _options))
                 Environment.Exit(1);
+
+            // Folded stacks are usually not meant for direct consumption, which means it doesn't make sense
+            // to filter out top stacks. This can be done by the processing tool if necessary.
+            if (_options.FoldedStacks)
+                _options.TopStacks = int.MaxValue;
         }
 
         private static void SetIntervalAndRepetitions()
@@ -107,12 +122,9 @@ namespace LiveStacks
             {
                 Console.Clear();
             }
-            if (!_options.FoldedStacks)
-            {
-                Console.WriteLine(DateTime.Now.ToLongTimeString());
-            }
+            Console.Error.WriteLine(DateTime.Now.ToLongTimeString());
             Stopwatch sw = Stopwatch.StartNew();
-            var stacks = _session.Stacks.TopStacks(_options.TopStacks);
+            var stacks = _session.Stacks.TopStacks(_options.TopStacks, _options.MinimumSamples);
             _session.Stacks.Clear();
             foreach (var stack in stacks)
             {
@@ -121,10 +133,7 @@ namespace LiveStacks
                 else
                     PrintNormalStack(stack);
             }
-            if (!_options.FoldedStacks)
-            {
-                Console.WriteLine($"  Time aggregating/resolving: {sw.ElapsedMilliseconds}ms");
-            }
+            Console.Error.WriteLine($"  Time aggregating/resolving: {sw.ElapsedMilliseconds}ms");
         }
 
         private static void PrintNormalStack(AggregatedStack stack)
