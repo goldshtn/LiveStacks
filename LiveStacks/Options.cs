@@ -2,6 +2,7 @@
 using CommandLine.Text;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,11 +21,11 @@ namespace LiveStacks
         public int TopStacks { get; set; }
 
         [Option('i', "interval", Required = false, DefaultValue = 5,
-            HelpText = "How often to print the stack summary")]
+            HelpText = "How often to print the stack summary (in seconds)")]
         public double IntervalSeconds { get; set; }
 
         [Option('c', "count", Required = false, DefaultValue = -1,
-            HelpText = "How many times to print a summary before quitting (default = indefinite)")]
+            HelpText = "How many times to print a summary before quitting (-1 = indefinite)")]
         public int Count { get; set; }
 
         [Option('C', "clear", Required = false, DefaultValue = false,
@@ -57,7 +58,7 @@ namespace LiveStacks
                     return new int[] { ProcessID };
 
                 if (!String.IsNullOrEmpty(ProcessName))
-                    throw new NotImplementedException();
+                    return Process.GetProcessesByName(ProcessName).Select(p => p.Id);
 
                 return Enumerable.Empty<int>();
             }

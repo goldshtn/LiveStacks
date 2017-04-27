@@ -19,8 +19,13 @@ namespace LiveStacks
 
         private static void Main(string[] args)
         {
+            var parser = new Parser(ps =>
+            {
+                ps.CaseSensitive = true;
+                ps.IgnoreUnknownArguments = false;
+            });
             _options = new Options();
-            if (!Parser.Default.ParseArguments(args, _options))
+            if (!parser.ParseArguments(args, _options))
                 Environment.Exit(1);
 
             _invocationsLeft = _options.Count == -1 ? int.MaxValue : _options.Count;
