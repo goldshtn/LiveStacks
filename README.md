@@ -1,6 +1,6 @@
 # LiveStacks
 
-This tool records, aggregates, and displays call stacks from interesting ETW events across the system. It resolves .NET symbols by using the CLRMD library to inspect the CLR data structures, which means it does not require CLR rundown events or NGen PDB files to be generated. On the other hand, it works only in live mode, when the collection and analysis happens on the target system.
+This tool records, aggregates, and displays call stacks from interesting ETW events across the system. It resolves .NET symbols by using the CLRMD library to inspect the CLR data structures, which means it does not require CLR rundown events or NGen PDB files to be generated. On the other hand, it works only in live mode, when the collection and analysis happens on the target system. Importantly, if the target process exits before the tool had a chance to print stacks, symbol resolution will fail, so it is more suitable for longer-running processes.
 
 > NOTE: This project is not done. There are still some unimplemented features, and the code hasn't been extensively tested. Caveat emptor, and pull requests welcome!
 
@@ -8,7 +8,7 @@ This tool records, aggregates, and displays call stacks from interesting ETW eve
 
 Open a command prompt window as administrator, and try some of the following examples.
 
-Collect CPU sampling events system-wide and print the top hottest stacks at default intervals:
+Collect CPU sampling events system-wide and print the top hottest stacks when Ctrl+C is hit:
 
 ```
 LiveStacks
@@ -38,7 +38,7 @@ Trace stacks for image load (DLL/EXE) events with a custom display interval (-i)
 LiveStacks -e kernel:imageload -i 1 -T 5
 ```
 
-Print stacks in folded format, suitable for direct pass-through to the [FlameGraph.pl](https://github.com/BrendanGregg/FlameGraph) script, and only print once (-c).
+Print stacks in folded format, suitable for direct pass-through to the [FlameGraph.pl](https://github.com/BrendanGregg/FlameGraph) script, and only print once before quitting (-c).
 
 ```
 LiveStacks -c 1 -f
@@ -132,6 +132,8 @@ Visual Studio process:
 Creating arbitrary kernel ETW sessions requires Windows 8 or later, and administrative privileges.
 
 To resolve managed symbols, the target process must currently have the same bitness as the tool. If this condition isn't met, managed symbols are not resolved but native symbols will still work properly. This can be addressed in the future by moving the managed symbol resolution into a separate helper process.
+
+Kernel symbols are currently not resolved, and filtered out by default.
 
 ## Building
 

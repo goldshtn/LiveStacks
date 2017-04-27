@@ -11,24 +11,19 @@ namespace LiveStacks
 {
     class Program
     {
-        private static StackResolver _resolver;
+        private const double DefaultIntervalSeconds = 5.0;
+
+        private static StackResolver _resolver = new StackResolver();
         private static LiveSession _session;
         private static Options _options;
         private static Timer _timer;
         private static int _invocationsLeft;
+        private static TimeSpan _interval = TimeSpan.Zero;
 
-        private static void Main(string[] args)
+        private static void Main()
         {
-            var parser = new Parser(ps =>
-            {
-                ps.CaseSensitive = true;
-                ps.IgnoreUnknownArguments = false;
-            });
-            _options = new Options();
-            if (!parser.ParseArguments(args, _options))
-                Environment.Exit(1);
-
-            _invocationsLeft = _options.Count == -1 ? int.MaxValue : _options.Count;
+            ParseCommandLineArguments();
+            SetIntervalAndRepetitions();
 
             try
             {
@@ -39,15 +34,29 @@ namespace LiveStacks
                 Console.Error.WriteLine("Error creating session: " + ex.Message);
                 Environment.Exit(1);
             }
-            Console.CancelKeyPress += (_, __) =>
+            Console.CancelKeyPress += (sender, args) =>
             {
-                Console.WriteLine("Ctrl+C pressed, stopping...");
+                Console.Error.WriteLine("Ctrl+C pressed, stopping...");
+                args.Cancel = true;
                 _session.Stop();
             };
 
-            _resolver = new StackResolver();
+            SetupTimer();
+            _session.Start();
+
+            // Produce one final printout before quitting. If there was no interval, this could
+            // be the only printout we produce.
+            OnTimer();
+        }
+
+        private static void SetupTimer()
+        {
+            // If there is no interval, we don't need to print at timed intervals. Just wait for the
+            // user to hit Ctrl+C and exit the session.
+            if (_interval == TimeSpan.Zero)
+                return;
+
             object timerSyncObject = new object();
-            TimeSpan interval = TimeSpan.FromSeconds(_options.IntervalSeconds);
             _timer = new Timer(_ =>
             {
                 // Prevent multiple invocations of the timer from running concurrently.
@@ -59,9 +68,37 @@ namespace LiveStacks
                         _session.Stop();
                     }
                 }
-            }, null, interval, interval);
+            }, null, _interval, _interval);
+        }
 
-            _session.Start();
+        private static void ParseCommandLineArguments()
+        {
+            var parser = new Parser(ps =>
+            {
+                ps.CaseSensitive = true;
+                ps.IgnoreUnknownArguments = false;
+            });
+            _options = new Options();
+            if (!parser.ParseArguments(Environment.GetCommandLineArgs(), _options))
+                Environment.Exit(1);
+        }
+
+        private static void SetIntervalAndRepetitions()
+        {
+            if (_options.Count == 0)
+            {
+                // The user wants an indefinite number of repetitions if an interval is specified,
+                // or run without printing until Ctrl+C if no interval is specified.
+                _invocationsLeft = int.MaxValue;
+                if (_options.IntervalSeconds != 0.0)
+                    _interval = TimeSpan.FromSeconds(_options.IntervalSeconds);
+            }
+            else
+            {
+                // A number of printouts was specified, set a default interval if one was not provided.
+                _invocationsLeft = _options.Count;
+                _interval = TimeSpan.FromSeconds(_options.IntervalSeconds == 0.0 ? DefaultIntervalSeconds : _options.IntervalSeconds);
+            }
         }
 
         private static void OnTimer()

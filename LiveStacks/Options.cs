@@ -20,12 +20,12 @@ namespace LiveStacks
             HelpText = "Print the top stacks, sorted by popularity")]
         public int TopStacks { get; set; }
 
-        [Option('i', "interval", Required = false, DefaultValue = 5,
-            HelpText = "How often to print the stack summary (in seconds)")]
+        [Option('i', "interval", Required = false, DefaultValue = 0,
+            HelpText = "How often to print the stack summary (in seconds; by default, wait for Ctrl+C)")]
         public double IntervalSeconds { get; set; }
 
-        [Option('c', "count", Required = false, DefaultValue = -1,
-            HelpText = "How many times to print a summary before quitting (-1 = indefinite)")]
+        [Option('c', "count", Required = false, DefaultValue = 0,
+            HelpText = "How many times to print a summary before quitting (0 = indefinite)")]
         public int Count { get; set; }
 
         [Option('C', "clear", Required = false, DefaultValue = false,
