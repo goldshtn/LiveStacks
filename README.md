@@ -138,7 +138,7 @@ perl FlameGraph.pl folded.stacks > sampled.svg
 
 Here is what a sample flame graph might look like:
 
-![Flame graph generated from LiveStacks folded output](sampled.svg)
+![Flame graph generated from LiveStacks folded output](https://cdn.rawgit.com/goldshtn/LiveStacks/master/sampled.svg)
 
 ## Requirements/Limitations
 
