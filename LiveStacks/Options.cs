@@ -20,8 +20,8 @@ namespace LiveStacks
         public int TopStacks { get; set; }
 
         [Option('i', "interval", Required = false, DefaultValue = 5,
-            HelpText = "How often to print the stack summary (0 = each stack is printed)")]
-        public int IntervalSeconds { get; set; }
+            HelpText = "How often to print the stack summary")]
+        public double IntervalSeconds { get; set; }
 
         [Option('c', "count", Required = false, DefaultValue = -1,
             HelpText = "How many times to print a summary before quitting (default = indefinite)")]

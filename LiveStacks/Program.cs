@@ -55,7 +55,6 @@ namespace LiveStacks
                     }
                 }
             }, null, interval, interval);
-            // TODO If the interval is 0, the user wants to print every single stack
 
             _session.Start();
         }
