@@ -27,6 +27,8 @@ namespace LiveStacks
 
         public AggregatedStacks Stacks { get; private set; } = new AggregatedStacks();
 
+        public ulong TotalEventsSeen { get; private set; }
+
         public LiveSession(string stackEvent, IEnumerable<int> processIDs, bool includeKernelFrames)
         {
             ParseProvider(stackEvent);
@@ -128,6 +130,8 @@ namespace LiveStacks
 
         private void OnClrStackEvent(ClrStackWalkTraceData stack)
         {
+            ++TotalEventsSeen;
+
             if (!ProcessFilter(stack.ProcessID))
                 return;
 
@@ -148,6 +152,8 @@ namespace LiveStacks
 
         private void OnKernelStackEvent(StackWalkStackTraceData stack)
         {
+            ++TotalEventsSeen;
+
             if (!ProcessFilter(stack.ProcessID))
                 return;
 

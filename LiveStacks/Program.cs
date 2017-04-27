@@ -50,6 +50,9 @@ namespace LiveStacks
             {
                 OnTimer();
             }
+
+            Console.Error.WriteLine();
+            Console.Error.WriteLine("Total events seen: " + _session.TotalEventsSeen);
         }
 
         private static void SetupTimer()
