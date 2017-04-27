@@ -61,6 +61,10 @@ namespace LiveStacks
 
         private static void OnTimer()
         {
+            if (_options.ClearScreen)
+            {
+                Console.Clear();
+            }
             if (!_options.FoldedStacks)
             {
                 Console.WriteLine(DateTime.Now.ToLongTimeString());

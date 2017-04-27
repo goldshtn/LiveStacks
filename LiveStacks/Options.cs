@@ -27,6 +27,10 @@ namespace LiveStacks
             HelpText = "How many times to print a summary before quitting (default = indefinite)")]
         public int Count { get; set; }
 
+        [Option('C', "clear", Required = false, DefaultValue = false,
+            HelpText = "Clear the screen between printouts (useful for top-like display)")]
+        public bool ClearScreen { get; set; }
+
         [Option('K', "kernel", Required = false, DefaultValue = false,
             HelpText = "Include kernel frames in the stack report")]
         public bool IncludeKernelFrames { get; set; }
