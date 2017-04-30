@@ -81,14 +81,18 @@ namespace LiveStacks
 
         public void AddStack(int processID, ulong[] addresses)
         {
-            PidStacks stacks = new PidStacks(processID);
-            stacks.AddStack(addresses);
-
-            _pidStacks.AddOrUpdate(processID, stacks, (_, existing) =>
-            {
-                existing.AddStack(addresses);
-                return existing;
-            });
+            _pidStacks.AddOrUpdate(processID,
+                pid =>
+                {
+                    PidStacks stacks = new PidStacks(pid);
+                    stacks.AddStack(addresses);
+                    return stacks;
+                },
+                (_, existing) =>
+                {
+                    existing.AddStack(addresses);
+                    return existing;
+                });
         }
 
         /// <summary>
