@@ -90,6 +90,7 @@ namespace LiveStacks
             {
                 ps.CaseSensitive = true;
                 ps.IgnoreUnknownArguments = false;
+                ps.HelpWriter = Console.Out;
             });
             _options = new Options();
             if (!parser.ParseArguments(Environment.GetCommandLineArgs(), _options))

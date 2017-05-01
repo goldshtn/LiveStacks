@@ -73,6 +73,12 @@ namespace LiveStacks
             var helpText = HelpText.AutoBuild(new Options());
             helpText.Copyright = "Copyright Sasha Goldshtein, 2017 under the MIT License.";
             helpText.Heading = "LiveStacks - print and aggregate live stacks from ETW events.";
+            helpText.AddPostOptionsLine("Examples:");
+            helpText.AddPostOptionsLine("  LiveStacks");
+            helpText.AddPostOptionsLine("  LiveStacks -p 7408");
+            helpText.AddPostOptionsLine("  LiveStacks -e clr:gc:gc/triggered");
+            helpText.AddPostOptionsLine("  LiveStacks -e kernel:imageload -i 1 -T 5");
+            helpText.AddPostOptionsLine("  LiveStacks -c 1 -f");
             return helpText.ToString();
         }
     }
