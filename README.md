@@ -38,6 +38,8 @@ Trace stacks for image load (DLL/EXE) events with a custom display interval (-i)
 LiveStacks -e kernel:imageload -i 1 -T 5
 ```
 
+* Other kernel keywords: https://github.com/Microsoft/perfview/blob/master/src/TraceEvent/Parsers/KernelTraceEventParser.cs
+
 Print stacks in folded format, suitable for direct pass-through to the [FlameGraph.pl](https://github.com/BrendanGregg/FlameGraph) script, and only print once before quitting (-c).
 
 ```
